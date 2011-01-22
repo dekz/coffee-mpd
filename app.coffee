@@ -1,20 +1,19 @@
 mpd = require './lib/mpd'
 client = new mpd
-client.on 'connected', ->
+client.on 'connect', ->
   console.log 'IM CONNECTED'
+  client.on 'file', (data) ->
+    console.log 'some file ' + data
+  client.listall()
+  client.status()
 client.connect 6600, 'localhost'
-list = null
-client.callbacks = 
-  listall: (l) ->
-    list = l
+
+#client.on 'file', (data) ->
+#  console.log data
 #client.listall()
 #client.status()
-client.on 'file', (data) ->
-  console.log data
-client.listall()
-client.status()
-client.on 'debug', (data) ->
-  console.log 'DEBUG: ' + data
+#client.on 'debug', (data) ->
+#  console.log 'DEBUG: ' + data
 
 
 test2 = ->

@@ -30,7 +30,6 @@ module.exports = class mpd
             if cmd[1] is 'MPD'
               console.log 'dont do much'
             else
-              console.log 'cb: ' + data
               @callback.call(self, @parseResponse packet)
               packet = []
 
@@ -48,16 +47,20 @@ module.exports = class mpd
     @stream.on 'data', @data() 
     @stream.on 'close', @closed 
     @stream.on 'end', @end 
-    @callback 'connected'
+    @callback 'connect'
 
   parseResponse: (data) =>
     p = {}
     for item in data
-      console.log item
       regx = /^(\w+):\s?(.*)$/i
       result = regx.exec item
       if result?
-        p[result[1]] = result[2]
+        if (result[1].indexOf('file') >=0)
+          if !p.files?
+            p.files = []
+          p.files.push result[2]
+        else
+          p[result[1]] = result[2]
     console.log 'returning ' + sys.inspect p
     return p
 
