@@ -8,8 +8,11 @@ module.exports = class mpd
     @version = '0.16.1' 
     @callbacks = new Object 
     @lastParent = '' 
+    @lastCommand = [] 
 
   send: (message) =>
+    @lastCommand.push  message.split(' ')[0]
+    console.log @lastCommand
     @stream.write "#{message}\n" 
 
   connected: =>
@@ -18,9 +21,7 @@ module.exports = class mpd
   data: (data) =>
     self = this
     packet = []
-    console.log 'data1'
     (data) =>
-      console.log 'data2'
       commands = data.split '\n'
       for cmd in commands
         packet.push cmd
@@ -30,14 +31,13 @@ module.exports = class mpd
             if cmd[1] is 'MPD'
               console.log 'dont do much'
             else
-              @callback.call(self, @parseResponse packet)
+              @callback.call(self, @lastCommand.pop(), @parseResponse packet)
               packet = []
 
   closed: =>
     @callback 'closed'
 
   end: =>
-    console.log('ending')
     @callback 'end'
 
   connect: (port, server) =>
@@ -59,9 +59,12 @@ module.exports = class mpd
           if !p.files?
             p.files = []
           p.files.push result[2]
+        else if (result[1].indexOf('directory') >= 0)
+          if !p.dirs?
+            p.dirs = []
+          p.dirs.push result[2]
         else
           p[result[1]] = result[2]
-    console.log 'returning ' + sys.inspect p
     return p
 
   parseResponseOld: (data) =>
@@ -96,7 +99,7 @@ module.exports = class mpd
     @callbacks.listall p
 
   callback: (type, data) =>
-    console.log 'trying to call back with type ' + sys.inspect type
+    console.log 'calling back on ' + type
     if @callbacks['debug']?
       for cb in @callbacks['debug']
         cb.call this, data
@@ -106,7 +109,6 @@ module.exports = class mpd
         cb.call this, data
       
   on: (type, cb) =>
-    console.log 'adding on for ' + type
     if !@callbacks[type]?
       @callbacks[type] = []
     @callbacks[type].push cb
