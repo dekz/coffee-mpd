@@ -1,5 +1,6 @@
 net = require 'net'
 sys = require 'util'
+path = require 'path'
 
 module.exports = class mpd 
   constructor: ->
@@ -24,6 +25,7 @@ module.exports = class mpd
         responseCode = cmd.split ' '
         switch responseCode[0]
           when 'OK'
+            console.log "GOT AN OK BRO"
             if responseCode[1] is 'MPD'
               @version = responseCode[2]
           when 'ACK'
@@ -59,21 +61,26 @@ module.exports = class mpd
         #console.log result
         switch result[1]
           when 'directory'
-            p[result[2]] = [] 
+            if !p.resp?
+              p.resp = []
             parent = result[2]
             @lastParent = parent
+            p.resp[result[2]] = [] 
           when 'file'
-            if p[parent]?
-              p[parent].push result[2]
+            if !p.resp?
+              p.resp = []
+            if p.resp[parent]?
+              p.resp[parent].push path.basename result[2] 
             else
-              #console.log "problem: parent- #{parent} file- #{result[2]} last-#{@lastParent}"
-              p[@lastParent] = []
-              p[@lastParent].push result[2]
-          #console.log result[1]
-          #p["dirs"[result[1]]] = result[2]
-        #p[result[1]] = result[2]
-    #console.log p
-    console.log sys.inspect p["Thrice"]
+              parent = @lastParent
+              p.resp[parent] = []
+              p.resp[parent].push result[2]
+          else
+            if !p.resp?
+              p.resp = {}
+            p.resp[result[1]] = result[2]
+
+    console.log p  
     @callbacks.listall p
 
   status: ->

@@ -6,3 +6,4 @@ client.callbacks =
   listall: (l) ->
     list = l
 client.listall()
+#client.status()
