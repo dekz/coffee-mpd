@@ -1,101 +1,122 @@
 net = require 'net'
-sys = require 'sys'
+sys = require 'util'
 
-class MPD
+module.exports = class mpd 
   constructor: ->
     @stream = null
-    @version = -1
+    @version = '0.16.1' 
+    @callbacks = new Object 
+    @lastParent = '' 
 
-    @connected = ->
-      console.log('connected')
+  send: (message) =>
+    console.log "sending message: #{message}\n" 
+    @stream.write "#{message}\n" 
 
-    @send = (message) ->
-      console.log('sending message: ' + message)
-      @stream.write(message + '\n')
+  connected: =>
+    console.log 'connected'
 
-    @data = (data) ->
-      response = []
-      commands = data.split '\n'
-    
-      for cmd in commands
-        if cmd.length >= 2
-          responseCode = cmd.split(' ')
-          switch responseCode[0]
-            when 'OK'
-              if responseCode[1] is 'MPD'
-                @version = responseCode[2]
-            when 'ACK'
-              return
-            else
-              response.push cmd
-      if response.length > 0
-        parseResponse response
+  data: (data) =>
+    response = []
+    commands = data.split '\n'
+  
+    for cmd in commands
+      if cmd.length >= 2
+        responseCode = cmd.split ' '
+        switch responseCode[0]
+          when 'OK'
+            if responseCode[1] is 'MPD'
+              @version = responseCode[2]
+          when 'ACK'
+            console.log(data)
+            return
+          else
+            response.push cmd
+    if response.length > 0
+      @parseResponse response
 
-    @closed = ->
-      console.log('closing connection')
+  closed: =>
+    console.log('closing connection')
 
-    @end = ->
-      console.log('ending')
+  end: ->
+    console.log('ending')
 
-  connect: (port, server) ->
-    @stream = net.createConnection(port, server)
-    @stream.setEncoding('utf8')
-    @stream.on('connect', @connected)
-    @stream.on('data', @data)
-    @stream.on('close', @closed)
-    @stream.on('end', @end)
+  connect: (port, server) =>
+    @stream = net.createConnection port, server
+    @stream.setEncoding 'utf8'
+    @stream.on 'connect', @connected 
+    @stream.on 'data', @data 
+    @stream.on 'close', @closed 
+    @stream.on 'end', @end 
 
-  parseResponse = (data) ->
-    console.log('parsing data')
+  parseResponse: (data) =>
     p = {}
+    parent = "" 
     for item in data
       regx = /^(\w+):\s?(.*)$/i
-      result = regx.exec(item)
+      result = regx.exec item
+      #console.log 'item ' +  item
       if result?
-        p[result[1]] = result[2]
+        #console.log result
+        switch result[1]
+          when 'directory'
+            p[result[2]] = [] 
+            parent = result[2]
+            @lastParent = parent
+          when 'file'
+            if p[parent]?
+              p[parent].push result[2]
+            else
+              #console.log "problem: parent- #{parent} file- #{result[2]} last-#{@lastParent}"
+              p[@lastParent] = []
+              p[@lastParent].push result[2]
+          #console.log result[1]
+          #p["dirs"[result[1]]] = result[2]
+        #p[result[1]] = result[2]
+    #console.log p
+    console.log sys.inspect p["Thrice"]
+    @callbacks.listall p
 
-    console.log(p)
+  status: ->
+    @send "status"
 
   next: ->
-    @send('next')
+    @send "next"
 
   currentSongDetails: ->
-    @send('currentsong')
+    @send "currentsong"
 
   pause: ->
-    @send('pause')
+    @send "pause"
 
   stop: ->
-    @send('stop')
+    @send("stop")
 
   play: (songId) ->
-    songId = songId | -1
-    @send('play ' + songId)
+    @send "play #{songId}"
 
   previous: ->
-    @send('previous')
+    @send "previous"
 
   random: (state) ->
-    state = state | !@randomState
-    @send('random ' + state)
+    @send "random #{state or not @random_state}" 
 
   repeat: (state) ->
-    state = state | !@repeatState
-    @send('repeat ' + state)
+    @send "repeat #{state or not @repeat_state}" 
 
-  seek: (songId, time) ->
-    cmd = ['seek', songId, time]
-    @send(cmd.join(' '))
+  seek: (id, time) ->
+    @send "seek #{id} #{time}"
 
   setvol: (vol) ->
-    @send('setvol ' + vol)
+    @send "setvol #{vol}" 
 
   close: ->
-    @send('close')
+    @send "close"
 
   password: (password) ->
-    @send('password ' + password)
+    @send "password #{password}" 
 
   ping: ->
-    @send('ping')
+    @send "ping"
 
+  listall: ->
+    @send "listall"
