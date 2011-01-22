@@ -31,7 +31,7 @@ module.exports = class mpd
             if cmd[1] is 'MPD'
               console.log 'dont do much'
             else
-              @callback.call(self, @lastCommand.pop(), @parseResponse packet)
+              @callback.call(self, @lastCommand.shift(), @parseResponse packet)
               packet = []
 
   closed: =>
@@ -99,7 +99,6 @@ module.exports = class mpd
     @callbacks.listall p
 
   callback: (type, data) =>
-    console.log 'calling back on ' + type
     if @callbacks['debug']?
       for cb in @callbacks['debug']
         cb.call this, data
