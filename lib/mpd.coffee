@@ -96,6 +96,7 @@ module.exports = class mpd
     @callbacks.listall p
 
   callback: (type, data) =>
+    console.log 'trying to call back with type ' + sys.inspect type
     if @callbacks['debug']?
       for cb in @callbacks['debug']
         cb.call this, data
