@@ -10,55 +10,66 @@ module.exports = class mpd
     @lastParent = '' 
 
   send: (message) =>
-    console.log "sending message: #{message}\n" 
     @stream.write "#{message}\n" 
 
   connected: =>
-    console.log 'connected'
+    @callback 'connected'
 
   data: (data) =>
-    response = []
-    commands = data.split '\n'
-  
-    for cmd in commands
-      if cmd.length >= 2
-        responseCode = cmd.split ' '
-        switch responseCode[0]
+    self = this
+    packet = []
+    console.log 'data1'
+    (data) =>
+      console.log 'data2'
+      commands = data.split '\n'
+      for cmd in commands
+        packet.push cmd
+        cmd = cmd.split ' '
+        switch cmd[0]
           when 'OK'
-            console.log "GOT AN OK BRO"
-            if responseCode[1] is 'MPD'
-              @version = responseCode[2]
-          when 'ACK'
-            console.log(data)
-            return
-          else
-            response.push cmd
-    if response.length > 0
-      @parseResponse response
+            if cmd[1] is 'MPD'
+              console.log 'dont do much'
+            else
+              console.log 'cb: ' + data
+              @callback.call(self, @parseResponse packet)
+              packet = []
 
   closed: =>
-    console.log('closing connection')
+    @callback 'closed'
 
-  end: ->
+  end: =>
     console.log('ending')
+    @callback 'end'
 
   connect: (port, server) =>
     @stream = net.createConnection port, server
     @stream.setEncoding 'utf8'
     @stream.on 'connect', @connected 
-    @stream.on 'data', @data 
+    @stream.on 'data', @data() 
     @stream.on 'close', @closed 
     @stream.on 'end', @end 
+    @callback 'connected'
 
   parseResponse: (data) =>
+    p = {}
+    for item in data
+      console.log item
+      regx = /^(\w+):\s?(.*)$/i
+      result = regx.exec item
+      if result?
+        p[result[1]] = result[2]
+    console.log 'returning ' + sys.inspect p
+    return p
+
+  parseResponseOld: (data) =>
+    if (data.indexOf('OK') >= 0)
+      console.log data
     p = {}
     parent = "" 
     for item in data
       regx = /^(\w+):\s?(.*)$/i
       result = regx.exec item
-      #console.log 'item ' +  item
       if result?
-        #console.log result
         switch result[1]
           when 'directory'
             if !p.resp?
@@ -79,9 +90,22 @@ module.exports = class mpd
             if !p.resp?
               p.resp = {}
             p.resp[result[1]] = result[2]
-
-    console.log p  
     @callbacks.listall p
+
+  callback: (type, data) =>
+    if @callbacks['debug']?
+      for cb in @callbacks['debug']
+        cb.call this, data
+
+    if @callbacks[type]?
+      for cb in @callbacks[type]
+        cb.call this, data
+      
+  on: (type, cb) =>
+    console.log 'adding on for ' + type
+    if !@callbacks[type]?
+      @callbacks[type] = []
+    @callbacks[type].push cb
 
   status: ->
     @send "status"
