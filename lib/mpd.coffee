@@ -17,7 +17,6 @@ module.exports = class mpd extends events
     @emit 'connected'
 
   data: (data) =>
-    self = this
     packet = []
     (data) =>
       commands = data.split '\n'
@@ -29,7 +28,7 @@ module.exports = class mpd extends events
             if cmd[1] is 'MPD'
               @version = cmd[2]
             else
-              @emit.call(self, @commandList.shift(), @parseResponse packet)
+              @emit.call(this, @commandList.shift(), @parseResponse packet)
               packet = []
 
   closed: =>
@@ -78,7 +77,7 @@ module.exports = class mpd extends events
     @send "pause"
 
   stop: ->
-    @send("stop")
+    @send "stop"
 
   play: (songId) ->
     @send "play #{songId}"
@@ -109,3 +108,9 @@ module.exports = class mpd extends events
 
   listall: ->
     @send "listall"
+
+  find: (type, search) ->
+    @send "find #{type} \"#{search}\""
+  
+  search: (type, search) ->
+    @send "search #{type} #{search}"
