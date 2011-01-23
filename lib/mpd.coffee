@@ -1,22 +1,20 @@
 net = require 'net'
 sys = require 'util'
 path = require 'path'
+events = require('events').EventEmitter
 
-module.exports = class mpd 
+module.exports = class mpd extends events 
   constructor: ->
     @stream = null
     @version = '0.16.1' 
-    @callbacks = new Object 
-    @lastParent = '' 
-    @lastCommand = [] 
+    @commandList = [] 
 
   send: (message) =>
-    @lastCommand.push  message.split(' ')[0]
-    console.log @lastCommand
+    @commandList.push  message.split(' ')[0]
     @stream.write "#{message}\n" 
 
   connected: =>
-    @callback 'connected'
+    @emit 'connected'
 
   data: (data) =>
     self = this
@@ -29,16 +27,16 @@ module.exports = class mpd
         switch cmd[0]
           when 'OK'
             if cmd[1] is 'MPD'
-              console.log 'dont do much'
+              @version = cmd[2]
             else
-              @callback.call(self, @lastCommand.shift(), @parseResponse packet)
+              @emit.call(self, @commandList.shift(), @parseResponse packet)
               packet = []
 
   closed: =>
-    @callback 'closed'
+    @emit 'closed'
 
   end: =>
-    @callback 'end'
+    @emit 'end'
 
   connect: (port, server) =>
     @stream = net.createConnection port, server
@@ -47,7 +45,7 @@ module.exports = class mpd
     @stream.on 'data', @data() 
     @stream.on 'close', @closed 
     @stream.on 'end', @end 
-    @callback 'connect'
+    @emit 'connect'
 
   parseResponse: (data) =>
     p = {}
@@ -66,51 +64,6 @@ module.exports = class mpd
         else
           p[result[1]] = result[2]
     return p
-
-  parseResponseOld: (data) =>
-    if (data.indexOf('OK') >= 0)
-      console.log data
-    p = {}
-    parent = "" 
-    for item in data
-      regx = /^(\w+):\s?(.*)$/i
-      result = regx.exec item
-      if result?
-        switch result[1]
-          when 'directory'
-            if !p.resp?
-              p.resp = []
-            parent = result[2]
-            @lastParent = parent
-            p.resp[result[2]] = [] 
-          when 'file'
-            if !p.resp?
-              p.resp = []
-            if p.resp[parent]?
-              p.resp[parent].push path.basename result[2] 
-            else
-              parent = @lastParent
-              p.resp[parent] = []
-              p.resp[parent].push result[2]
-          else
-            if !p.resp?
-              p.resp = {}
-            p.resp[result[1]] = result[2]
-    @callbacks.listall p
-
-  callback: (type, data) =>
-    if @callbacks['debug']?
-      for cb in @callbacks['debug']
-        cb.call this, data
-
-    if @callbacks[type]?
-      for cb in @callbacks[type]
-        cb.call this, data
-      
-  on: (type, cb) =>
-    if !@callbacks[type]?
-      @callbacks[type] = []
-    @callbacks[type].push cb
 
   status: ->
     @send "status"
